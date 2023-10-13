@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Security.Cryptography.X509Certificates;
+﻿using MongoDB.Bson;
+using System.ComponentModel.DataAnnotations;
 
 namespace SU_API.Models
 {
@@ -14,24 +14,25 @@ namespace SU_API.Models
 
     public class CreateViewModel
     {
+        public ObjectId _id { get; set; }
 
         [Required]
-        public string Order_name{ get; set; }
+        public string OrderName { get; set; }
 
         [Required]
-        public string Res_name{ get; set; }
+        public string res_name{ get; set; }
 
         [Required]
-        public string Place{ get; set; }
+        public string place{ get; set; }
 
         [Required]
         public string Comment{ get; set; }
 
         [Required]
-        public bool Isgrab { get; set; }
+        public bool IsGrab{ get; set; }
 
 
-        public List<OrderItem> Items { get; set; }
+        public List<OrderItem> Items{ get; set; }
 
 
 

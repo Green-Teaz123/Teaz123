@@ -1,17 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 using SU_API.Models;
-using System.Text.Json;
 using MongoDB.Driver;
-using System.Text.Json.Serialization;
-using MongoDB.Bson;
-using System;
-using System.Collections.Generic;
+
 
 namespace API_SU.Controllers
 {
+
     [ApiController]
-    [Route("/api/[controller]")]
+    [Route("/api/")]
     public class OrderController : ControllerBase
     {
         private readonly IMongoCollection<CreateViewModel> _orderCollection;
@@ -23,46 +19,6 @@ namespace API_SU.Controllers
             _orderCollection = database.GetCollection<CreateViewModel>("Ordersu");
         }
 
-        [HttpGet]
-        public ActionResult<List<string>> GetOrder()
-        {
-            var user = new List<string>
-            {
-                "User1",
-                "User2",
-                "User3"
-            };
-            return Ok(user);
-        }
-
-
-        [HttpGet]
-        [Route("test")]
-        public ActionResult TestConnection()
-        {
-            try
-            {
-                var document = new CreateViewModel
-                {
-                    Order_name = "Sample Order",
-                    Res_name = "Sample Restaurant",
-                    Place = "Sample Place",
-                    Comment = "This is a test order",
-                    Isgrab = true,
-                    Items = new System.Collections.Generic.List<OrderItem>
-                {
-                    new OrderItem { Dish = "Item 1", Quantity = 2 },
-                    new OrderItem { Dish = "Item 2", Quantity = 1 }
-                }
-                };
-                _orderCollection.InsertOne(document);
-                return Ok("Connection to MongoDB is successful.");
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Connection to MongoDB failed: {ex.Message}");
-            }
-        }
 
         [HttpPost]
         [Route("create")]
@@ -73,18 +29,18 @@ namespace API_SU.Controllers
                 return BadRequest("Invalid order data. Request body is missing or not in the correct format.");
             }
 
-            if (string.IsNullOrWhiteSpace(orderModel.Order_name) || string.IsNullOrWhiteSpace(orderModel.Res_name)
-                || string.IsNullOrWhiteSpace(orderModel.Place) || string.IsNullOrWhiteSpace(orderModel.Comment)
+            if (string.IsNullOrWhiteSpace(orderModel.OrderName) || string.IsNullOrWhiteSpace(orderModel.res_name)
+                || string.IsNullOrWhiteSpace(orderModel.place) || string.IsNullOrWhiteSpace(orderModel.Comment)
                 || orderModel.Items == null || orderModel.Items.Count == 0)
             {
                 return BadRequest("Invalid order data. Make sure all required fields are provided.");
             }
 
-            string orderName = orderModel.Order_name;
-            string resName = orderModel.Res_name;
-            string place = orderModel.Place;
+            string orderName = orderModel.OrderName;
+            string resName = orderModel.res_name;
+            string place = orderModel.place;
             string comment = orderModel.Comment;
-            bool isGrab = orderModel.Isgrab;
+            bool isGrab = orderModel.IsGrab;
             List<OrderItem> items = orderModel.Items;
 
             string message = $"Order '{orderName}' created successfully with the following items:\n";
@@ -98,21 +54,139 @@ namespace API_SU.Controllers
             {
                 var document = new CreateViewModel
                 {
-                    Order_name = orderName,
-                    Res_name = resName,
-                    Place = place,
+                    OrderName = orderName,
+                    res_name = resName,
+                    place = place,
                     Comment = comment,
-                    Isgrab = false,
+                    IsGrab = false,
                     Items = items
                 };
                 _orderCollection.InsertOne(document);
-                return Ok("Connection to MongoDB is successful.");
+                return StatusCode(201,"Create successful");
             }
             catch (Exception ex)
             {
                 return BadRequest($"Connection to MongoDB failed: {ex.Message}");
             }
 
+        }
+
+
+        [HttpGet("getOrders")]
+        public ActionResult<IEnumerable<CreateViewModel>> GetOrders()
+        {
+            try
+            {
+                var orders = _orderCollection.Find(_ => true).ToList();
+                var serializedOrders = orders.Select(order => new
+                {
+                    Id = order._id.ToString(),
+                    OrderName = order.OrderName,
+                    res_name = order.res_name,
+                    place = order.place,
+                    comment = order.Comment,
+                    isgrab = order.IsGrab,
+                    items = order.Items
+                }).ToList();
+
+                return Ok(serializedOrders);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to fetch orders from MongoDB: {ex.Message}");
+            }
+        }
+
+        [HttpGet("getOrder/{orderId}")]
+        public ActionResult<CreateViewModel> GetOrder(string orderId)
+        {
+            try
+            {
+                var order = _orderCollection.Find(o => o._id.ToString() == orderId).FirstOrDefault();
+
+                if (order == null)
+                {
+                    return NotFound();
+                }
+
+                return Ok(order);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to fetch the order from MongoDB: {ex.Message}");
+
+            }
+        }
+
+        [HttpPut("isGrabTrue/{orderId}")]
+        public ActionResult UpdateTrueOrder(string orderId, [FromBody] CreateViewModel updatedOrder)
+        {
+            try
+            {
+                var existingOrder = _orderCollection.Find(o => o._id.ToString() == orderId).FirstOrDefault();
+
+                if (existingOrder == null)
+                {
+                    return NotFound();
+                }
+
+                existingOrder.IsGrab = true;
+
+
+                _orderCollection.ReplaceOne(o => o._id.ToString() == orderId, existingOrder);
+
+                return Ok(existingOrder);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to update the order in MongoDB: {ex.Message}");
+            }
+        }
+
+        [HttpPut("isGrabFalse/{orderId}")]
+        public ActionResult UpdateFalseOrder(string orderId, [FromBody] CreateViewModel updatedOrder)
+        {
+            try
+            {
+                var existingOrder = _orderCollection.Find(o => o._id.ToString() == orderId).FirstOrDefault();
+
+                if (existingOrder == null)
+                {
+                    return NotFound();
+                }
+
+                existingOrder.IsGrab = true;
+
+
+                _orderCollection.ReplaceOne(o => o._id.ToString() == orderId, existingOrder);
+
+                return Ok(existingOrder);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to update the order in MongoDB: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("deleteOrder/{orderId}")]
+        public ActionResult DeleteOrder(string orderId)
+        {
+            try
+            {
+                var existingOrder = _orderCollection.Find(o => o._id.ToString() == orderId).FirstOrDefault();
+
+                if (existingOrder == null)
+                {
+                    return NotFound();
+                }
+                _orderCollection.DeleteOne(o => o._id.ToString() == orderId);
+
+                return Ok("Order deleted successfully");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to delete the order from MongoDB: {ex.Message}");
+            }
         }
     }
 }
